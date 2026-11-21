@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EVE LP 兑换规划器 · 伏尔戈</title>
+<style>
+  :root{
+    --bg:#0a0d13; --panel:#111721; --panel2:#0d131c; --line:#1e2836; --line2:#2a3646;
+    --text:#d8e0ec; --dim:#78859a; --dim2:#55627a;
+    --gold:#ffc857; --cyan:#49d6c8; --green:#5ddc8e; --red:#ff6f6f; --purple:#a89bff; --blue:#6aa9ff;
+    --r:10px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font:13px/1.55 "Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  body{min-height:100vh}
+  .num{font-variant-numeric:tabular-nums}
+  a{color:var(--cyan)}
+  header{display:flex;align-items:center;gap:14px;padding:12px 18px;
+    border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0e141d,#0a0d13);
+    position:sticky;top:0;z-index:30}
+  header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.5px}
+  header h1 span{color:var(--gold)}
+  .market-badge{display:flex;align-items:center;gap:7px;padding:5px 11px;border-radius:999px;
+    background:#131b26;border:1px solid var(--line2);font-size:12px;color:var(--dim)}
+  .market-badge b{color:var(--cyan);font-weight:600}
+  .market-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+  .spacer{flex:1}
+  .ghost{background:none;border:1px solid var(--line2);color:var(--dim);padding:5px 10px;
+    border-radius:8px;cursor:pointer;font-size:12px}
+  .ghost:hover{border-color:var(--cyan);color:var(--cyan)}
+  .layout{display:grid;grid-template-columns:326px minmax(0,1fr);gap:0;align-items:start}
+  .sidebar{position:sticky;top:49px;max-height:calc(100vh - 49px);overflow-y:auto;
+    border-right:1px solid var(--line);padding:14px 14px 40px;background:var(--panel2)}
+  main{padding:16px 20px 60px;min-width:0}
+  .sidebar::-webkit-scrollbar,main::-webkit-scrollbar{width:9px;height:9px}
+  .sidebar::-webkit-scrollbar-thumb,main::-webkit-scrollbar-thumb{background:#1c2635;border-radius:5px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+    padding:12px 13px;margin-bottom:12px}
+  .card h3{margin:0 0 10px;font-size:11px;font-weight:600;letter-spacing:1.2px;
+    text-transform:uppercase;color:var(--dim2)}
+  label.field{display:block;margin-bottom:9px}
+  label.field .k{display:flex;justify-content:space-between;align-items:baseline;
+    font-size:12px;color:var(--dim);margin-bottom:4px}
+  label.field .k i{font-style:normal;color:var(--dim2);font-size:11px}
+  input[type=text],input[type=number],select{width:100%;background:#0a1018;border:1px solid var(--line2);
+    color:var(--text);border-radius:7px;padding:6px 9px;font-size:13px;font-family:inherit;outline:none}
+  input:focus,select:focus{border-color:var(--cyan);box-shadow:0 0 0 2px rgba(73,214,200,.12)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .seg{display:flex;border:1px solid var(--line2);border-radius:8px;overflow:hidden}
+  .seg button{flex:1;background:#0a1018;border:0;color:var(--dim);padding:6px 4px;cursor:pointer;
+    font-size:12px;font-family:inherit}
+  .seg button.on{background:rgba(73,214,200,.14);color:var(--cyan);font-weight:600}
+  .chk{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);cursor:pointer;
+    padding:5px 0}
+  .chk input{accent-color:var(--cyan);width:14px;height:14px}
+  details.adv{margin-top:10px;border-top:1px solid var(--line2);padding-top:8px}
+  details.adv summary{cursor:pointer;font-size:11px;color:var(--dim2);letter-spacing:.4px;
+    list-style:none;display:flex;align-items:center;gap:6px}
+  details.adv summary::-webkit-details-marker{display:none}
+  details.adv summary::before{content:'';width:0;height:0;flex:0 0 auto;
+    border-left:5px solid var(--dim2);border-top:4px solid transparent;border-bottom:4px solid transparent;
+    transition:transform .15s}
+  details.adv[open] summary::before{transform:rotate(90deg)}
+  details.adv summary i{font-style:normal;font-size:10px;color:var(--dim2);margin-left:auto}
+  details.adv[open] summary{margin-bottom:10px}
+  .btn-big{width:100%;margin-top:6px;padding:11px;border:0;border-radius:9px;cursor:pointer;
+    background:linear-gradient(135deg,#2b8f86,#1f6f7d);color:#eafffb;font-size:14px;font-weight:600;
+    font-family:inherit;letter-spacing:.5px;transition:filter .15s}
+  .btn-big:hover{filter:brightness(1.12)}
+  .btn-big:disabled{filter:grayscale(.6) brightness(.7);cursor:wait}
+  .btn-big.dirty{animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(73,214,200,0)}50%{box-shadow:0 0 0 5px rgba(73,214,200,.16)}}
+  .corp-tools{display:flex;gap:6px;margin-bottom:8px}
+  .corp-tools button{flex:1;background:#0a1018;border:1px solid var(--line2);color:var(--dim);
+    border-radius:7px;padding:4px;font-size:11px;cursor:pointer;font-family:inherit}
+  .corp-tools button:hover{color:var(--cyan);border-color:var(--cyan)}
+  #corpList{max-height:290px;overflow-y:auto;margin:0 -4px;padding:0 4px}
+  .fac{margin-bottom:5px}
+  .fac-head{display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 5px;border-radius:6px;
+    color:var(--dim);font-size:12px}
+  .fac-head:hover{background:#141c27;color:var(--text)}
+  .fac-head .caret{width:10px;color:var(--dim2);transition:transform .15s}
+  .fac.open .caret{transform:rotate(90deg)}
+  .fac-head .cnt{margin-left:auto;font-size:10px;color:var(--dim2)}
+  .fac-head.has b{color:var(--cyan)}
+  .corps{display:none;padding:2px 0 4px 14px}
+  .fac.open .corps{display:block}
+  .corp{display:flex;align-items:center;gap:6px;padding:2px 0}
+  .corp .nm{flex:1;font-size:12px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .corp.on .nm{color:var(--text);font-weight:600}
+  .corp input{width:96px;padding:3px 6px;font-size:12px;text-align:right}
+  .hero{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:10px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:11px 13px;
+    position:relative;overflow:hidden}
+  .stat .lb{font-size:11px;color:var(--dim2);letter-spacing:.6px;text-transform:uppercase}
+  .stat .vl{font-size:21px;font-weight:600;margin-top:3px;letter-spacing:-.3px}
+  .stat .sub{font-size:11px;color:var(--dim);margin-top:2px}
+  .stat.primary{border-color:#26485a;background:linear-gradient(160deg,#12212b,#111721)}
+  .stat.primary .vl{color:var(--gold)}
+  .stat.accent{border-color:#1f4442}
+  .stat.accent .vl{color:var(--cyan)}
+  .mini{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:12px}
+  .mini .stat{padding:8px 10px}
+  .mini .vl{font-size:15px}
+  .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;border:1px solid}
+  .pill.isk{color:var(--gold);border-color:#5a4a20;background:#221c0d}
+  .pill.lp{color:var(--cyan);border-color:#1d4a46;background:#0d2220}
+  .pill.both{color:var(--purple);border-color:#3b3560;background:#171429}
+  .pill.none{color:var(--dim);border-color:var(--line2);background:#12181f}
+  .pill.warn{color:#ffb4a1;border-color:#5c2f28;background:#241413}
+  .pill.info{color:var(--blue);border-color:#274059;background:#0f1a26}
+  .hints{margin-bottom:12px;display:flex;flex-direction:column;gap:6px}
+  .hint{display:flex;gap:8px;align-items:flex-start;font-size:12px;padding:7px 10px;border-radius:8px;
+    background:#10161f;border:1px solid var(--line);color:var(--dim);line-height:1.5}
+  .hint b{color:var(--text);font-weight:600}
+  .hint.warn{border-color:#4a2a24;background:#1a1211;color:#e8c4bc}
+  .hint.good{border-color:#1f4a35;background:#0e1a14;color:#b6e6c8}
+  .frontier{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+    padding:10px 12px 4px;margin-bottom:14px}
+  .frontier .hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+  .frontier .hd b{font-size:12px;color:var(--text);font-weight:600}
+  .frontier .hd span{font-size:11px;color:var(--dim2)}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:0}
+  .tabs button{background:none;border:0;border-bottom:2px solid transparent;color:var(--dim);
+    padding:8px 14px;cursor:pointer;font-size:13px;font-family:inherit}
+  .tabs button:hover{color:var(--text)}
+  .tabs button.on{color:var(--cyan);border-bottom-color:var(--cyan);font-weight:600}
+  .toolbar{display:flex;gap:8px;align-items:center;padding:9px 0}
+  .toolbar input[type=text]{max-width:220px}
+  .tbl-wrap{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+    overflow:auto;max-height:calc(100vh - 330px)}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  thead th{position:sticky;top:0;z-index:2;background:#0f1620;color:var(--dim);
+    font-weight:600;text-align:right;padding:8px 9px;border-bottom:1px solid var(--line2);
+    white-space:nowrap;cursor:pointer;user-select:none;font-size:11px}
+  thead th:first-child,thead th.l{text-align:left}
+  thead th:hover{color:var(--cyan)}
+  thead th .ar{color:var(--cyan);font-size:9px;margin-left:2px}
+  tbody td{padding:6px 9px;border-bottom:1px solid #151d27;text-align:right;white-space:nowrap}
+  tbody td.l{text-align:left}
+  tbody tr:hover{background:#141c26}
+  tbody tr.excluded{opacity:.38}
+  .item{max-width:250px;overflow:hidden;text-overflow:ellipsis;display:block}
+  .corp-tag{font-size:10px;color:var(--dim2)}
+  .pos{color:var(--green)}
+  .neg{color:var(--red)}
+  .muted{color:var(--dim2)}
+  .bar{position:relative;height:5px;width:52px;background:#182130;border-radius:3px;overflow:hidden;
+    display:inline-block;vertical-align:middle}
+  .bar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--cyan),var(--purple))}
+  .row-act{background:none;border:1px solid var(--line2);color:var(--dim);border-radius:6px;
+    padding:2px 7px;font-size:11px;cursor:pointer;font-family:inherit}
+  .row-act:hover{color:var(--red);border-color:var(--red)}
+  .row-act.restore:hover{color:var(--green);border-color:var(--green)}
+  .empty{padding:40px;text-align:center;color:var(--dim2)}
+  .plan-item{display:flex;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--r);padding:10px 13px;margin-bottom:8px}
+  .plan-item .meta{flex:1;min-width:0}
+  .plan-item .meta .t{font-size:12px;color:var(--dim)}
+  .plan-item .meta .v{font-size:15px;font-weight:600;color:var(--gold)}
+  .plan-item .meta .s{font-size:11px;color:var(--dim2);margin-top:2px}
+  .plan-item.done .meta .v{color:var(--green)}
+  .btn-s{background:#0a1018;border:1px solid var(--line2);color:var(--dim);border-radius:7px;
+    padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .btn-s:hover{color:var(--cyan);border-color:var(--cyan)}
+  .btn-s.danger:hover{color:var(--red);border-color:var(--red)}
+  .stats-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+  .wallet-chart{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px}
+  .settings-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #151d27}
+  .settings-row .nm{flex:1}
+  .settings-row input{width:110px;text-align:right}
+  .toast{position:fixed;right:18px;bottom:18px;background:#14212b;border:1px solid var(--line2);
+    color:var(--text);padding:9px 14px;border-radius:9px;font-size:12px;opacity:0;transform:translateY(8px);
+    transition:.2s;z-index:100;pointer-events:none;max-width:420px}
+  .toast.show{opacity:1;transform:none}
+  .toast.err{border-color:#5c2f28;color:#ffc3b8}
+  @media (max-width:1100px){
+    .layout{grid-template-columns:1fr}
+    .sidebar{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--line)}
+    .hero,.mini,.stats-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>EVE <span>LP</span> 兑换规划器</h1>
+  <div class="market-badge"><span class="dot"></span>市场 <b id="regionBadge">伏尔戈</b> · 数据源 eve.starweb.cc</div>
+  <div class="spacer"></div>
+  <button class="ghost" id="esiBtn" onclick="esiAction()">ESI 未连接</button>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="card">
+      <h3>我的 LP 与本金</h3>
+      <label class="field">
+        <span class="k"><span>可用 ISK（亿）</span><i id="iskHint">0 可用</i></span>
+        <input type="text" id="isk" value="20" inputmode="decimal" oninput="fmtIskInput(this)" />
+      </label>
+      <div class="corp-tools">
+        <button onclick="toggleAllFactions(true)">全展开</button>
+        <button onclick="toggleAllFactions(false)">收起</button>
+        <button onclick="clearSelections()">清空</button>
+      </div>
+      <input type="text" id="corpFilter" placeholder="搜索公司 / 势力…" oninput="renderCorpList(this.value)"
+             style="margin-bottom:8px" />
+      <div id="corpList"></div>
+    </div>
+
+    <div class="card">
+      <h3>交易设定</h3>
+      <label class="field"><span class="k">风格档位<i id="presetHint">均衡：每天吃 5% 成交量，3 天卖完</i></span></label>
+      <div class="seg" id="presetSeg">
+        <button data-v="fast" onclick="applyPreset('fast')">求快</button>
+        <button data-v="balanced" class="on" onclick="applyPreset('balanced')">均衡</button>
+        <button data-v="full" onclick="applyPreset('full')">吃满</button>
+      </div>
+      <label class="field" style="margin-top:9px"><span class="k">卖出方式<i>挂单吃价差，直卖立刻成交</i></span></label>
+      <div class="seg" id="listingSeg">
+        <button data-v="0" class="on" onclick="setListing(0)">直接卖给买单</button>
+        <button data-v="1" onclick="setListing(1)">挂卖单</button>
+      </div>
+      <label class="chk"><input type="checkbox" id="ownMaterials" />材料我已自备（不计入 ISK）</label>
+
+      <details class="adv" id="advBox">
+        <summary>高级参数<i>改动后档位变为「自定义」</i></summary>
+        <div class="two">
+          <label class="field"><span class="k">销售税 %</span>
+            <input type="number" id="tax" value="4.5" step="0.5" min="0" max="20" /></label>
+          <label class="field"><span class="k">经纪人费 %</span>
+            <input type="number" id="brokerFee" value="2.5" step="0.5" min="0" max="10" /></label>
+        </div>
+        <div class="two">
+          <label class="field"><span class="k">卖出天数</span>
+            <input type="number" id="sellDays" value="3" step="1" min="1" max="60" /></label>
+          <label class="field"><span class="k">最低日销售额<i>亿 ISK/天</i></span>
+            <input type="number" id="minDailySales" value="0.5" step="0.1" min="0" /></label>
+        </div>
+        <div class="two">
+          <label class="field"><span class="k">单品 LP 上限 %</span>
+            <input type="number" id="maxLpShare" value="25" step="5" min="5" max="100" /></label>
+          <label class="field"><span class="k">最少品种数</span>
+            <input type="number" id="minItems" value="5" step="1" min="1" max="50" /></label>
+        </div>
+        <label class="field"><span class="k">无曲线时价格冲击 %<i>每吃 1 倍日成交量</i></span>
+          <input type="number" id="impact" value="10" step="1" min="0" max="60" /></label>
+      </details>
+
+      <button class="btn-big dirty" id="runBtn" onclick="generate()" style="margin-top:10px">开始规划</button>
+      <div id="status" style="margin-top:8px;font-size:11px;color:var(--dim2);text-align:center"></div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="hero">
+      <div class="stat primary">
+        <div class="lb">净利润</div><div class="vl num" id="sNet">—</div>
+        <div class="sub" id="sNetSub">扣除 LP 获取成本</div>
+      </div>
+      <div class="stat accent">
+        <div class="lb">总利润</div><div class="vl num" id="sProfit">—</div>
+        <div class="sub" id="sProfitSub">已含销售税 / 经纪人费</div>
+      </div>
+      <div class="stat">
+        <div class="lb">用掉 LP</div><div class="vl num" id="sLp">—</div>
+        <div class="sub" id="sLpSub">—</div>
+      </div>
+      <div class="stat">
+        <div class="lb">投入 ISK</div><div class="vl num" id="sSpend">—</div>
+        <div class="sub" id="sSpendSub">—</div>
+      </div>
+    </div>
+
+    <div class="mini">
+      <div class="stat"><div class="lb">瓶颈</div><div class="vl" id="sBottleneck">—</div></div>
+      <div class="stat"><div class="lb">ISK 边际收益</div><div class="vl num" id="sShadow">—</div>
+        <div class="sub">每 1 亿本金</div></div>
+      <div class="stat"><div class="lb">平均 ISK/LP</div><div class="vl num" id="sAvg">—</div></div>
+      <div class="stat"><div class="lb">投入 ISK/LP</div><div class="vl num" id="sSpendLp">—</div></div>
+      <div class="stat"><div class="lb">商品数</div><div class="vl num" id="sItems">—</div></div>
+    </div>
+
+    <div class="hints" id="hints"></div>
+    <div class="frontier" id="frontierCard" style="display:none">
+      <div class="hd"><b>效率前沿</b><span id="frontierNote">固定 LP 与交易设定，改变本金能拿到多少利润</span></div>
+      <svg id="frontierSvg" viewBox="0 0 660 190" preserveAspectRatio="none" style="width:100%;height:190px"></svg>
+    </div>
+
+    <div class="tabs">
+      <button class="on" data-tab="plan" onclick="switchTab('plan')">兑换清单</button>
+      <button data-tab="all" onclick="switchTab('all')">全部候选</button>
+      <button data-tab="plans" onclick="switchTab('plans')">计划存档</button>
+      <button data-tab="wallet" onclick="switchTab('wallet')">钱包</button>
+      <button data-tab="settings" onclick="switchTab('settings')">设置</button>
+    </div>
+
+    <div id="planArea">
+      <div class="toolbar">
+        <input type="text" id="filter" placeholder="过滤商品…" oninput="render()" />
+        <span class="muted" id="rowCount"></span>
+        <div class="spacer"></div>
+        <button class="btn-s" onclick="savePlan()">保存计划</button>
+        <button class="btn-s" onclick="copyMaterials()">复制材料清单</button>
+      </div>
+      <div class="tbl-wrap"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+      <div id="materialBox" class="hints" style="margin-top:12px"></div>
+    </div>
+
+    <div id="plansArea" style="display:none">
+      <div class="stats-row" id="planStats"></div>
+      <div id="plansList"></div>
+    </div>
+
+    <div id="walletArea" style="display:none">
+      <div class="toolbar"><button class="btn-s" onclick="loadWallet()">刷新</button>
+        <span class="muted" id="walletNote"></span></div>
+      <div class="stats-row" id="walletStats"></div>
+      <div class="wallet-chart" id="walletChartBox"><canvas id="chart" width="900" height="230" style="width:100%"></canvas></div>
+      <div id="walletEmpty" class="empty" style="display:none">
+        还没连接 ESI。点右上角「ESI 未连接」授权后，这里会显示钱包余额曲线与近 30 日流水。
+      </div>
+      <div class="tbl-wrap" id="walletTableBox" style="margin-top:12px"><table><thead id="walletThead"></thead><tbody id="walletTbody"></tbody></table></div>
+    </div>
+
+    <div id="settingsArea" style="display:none">
+      <div class="card">
+        <h3>LP 获取成本（ISK / LP）</h3>
+        <div style="font-size:12px;color:var(--dim);margin-bottom:10px">
+          用于把「总利润」换算成「净利润」。例如刷四级任务 + 回收 LP 时每点约 400 ISK。
+        </div>
+        <div id="settingsList"></div>
+        <button class="btn-s" style="margin-top:12px" onclick="saveLpCosts()">保存</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const S = {
+  meta: null,
+  plan: null,
+  tab: 'plan',
+  sort: { key: 'profit', dir: -1 },
+  excluded: new Set(JSON.parse(localStorage.getItem('eveExcludedItems') || '[]')),
+  lpCosts: {},
+  plans: [],
+  planStats: {},
+  wallet: null,
+  listing: 0,
+};
+
+const $ = s => document.querySelector(s);
+const el = (t, c, h) => { const n = document.createElement(t); if (c) n.className = c; if (h != null) n.innerHTML = h; return n; };
+
+function fmt(n, d = 2) {
+  if (n == null || isNaN(n)) return '—';
+  const a = Math.abs(n);
+  if (a >= 1e12) return (n / 1e12).toFixed(d) + 'T';
+  if (a >= 1e9) return (n / 1e9).toFixed(d) + 'B';
+  if (a >= 1e6) return (n / 1e6).toFixed(d) + 'M';
+  if (a >= 1e4) return (n / 1e3).toFixed(1) + 'K';
+  return Math.round(n).toLocaleString('zh-CN');
+}
+const fmtI = n => (n == null || isNaN(n)) ? '—' : Math.round(n).toLocaleString('zh-CN');
+const pct = v => (v == null || isNaN(v)) ? '—' : (v * 100).toFixed(Math.abs(v) < 0.01 ? 2 : 1) + '%';
+
+function toast(msg, err) {
+  const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
+  clearTimeout(t._h); t._h = setTimeout(() => t.className = 'toast', 3200);
+}
+function fmtIskInput(inp) {
+  const raw = inp.value.replace(/[^\d.]/g, '');
+  if (raw !== inp.value) inp.value = raw;
+  localStorage.setItem('eveIsk', inp.value);
+  const n = parseFloat(raw) * 1e8;  // 输入单位：亿 ISK
+  $('#iskHint').textContent = isFinite(n) && n > 0 ? fmt(n) + ' 可用' : '0 可用';
+}
+function readIsk() {
+  const v = parseFloat(($('#isk').value || '0').replace(/[^\d.]/g, ''));
+  return isFinite(v) ? v * 1e8 : 0;
+}
+
+async function loadMeta() {
+  try {
+    const r = await fetch('/api/meta'); S.meta = await r.json();
+    renderCorpList('');
+  } catch (e) { toast('元数据加载失败：' + e.message, true); }
+}
+
+function renderCorpList(filter = '') {
+  if (!S.meta) return;
+  const box = $('#corpList'); box.innerHTML = '';
+  const f = (filter || '').trim().toLowerCase();
+  const saved = JSON.parse(localStorage.getItem('eveSelCorps') || '{}');
+
+  S.meta.factions.forEach(fac => {
+    const corps = (fac.Corporations || []).filter(c =>
+      !f || c.CorporationName.toLowerCase().includes(f) || (fac.FactionName || '').toLowerCase().includes(f));
+    if (!corps.length) return;
+    const onCount = corps.filter(c => saved[c.CorporationId]).length;
+
+    const wrap = el('div', 'fac' + (onCount || f ? ' open' : ''));
+    const head = el('div', 'fac-head' + (onCount ? ' has' : ''));
+    head.innerHTML = `<span class="caret">▶</span><span>${fac.FactionName}</span>
+      <span class="cnt">${onCount ? onCount + '/' : ''}${corps.length}</span>`;
+    head.onclick = () => wrap.classList.toggle('open');
+    const list = el('div', 'corps');
+    corps.forEach(c => {
+      const has = saved[c.CorporationId];
+      const row = el('div', 'corp' + (has ? ' on' : ''));
+      row.innerHTML = `<span class="nm" title="${c.CorporationName}">${c.CorporationName}</span>
+        <input type="text" placeholder="LP" inputmode="numeric"
+               value="${has ? Number(has).toLocaleString('zh-CN') : ''}" />`;
+      const inp = row.querySelector('input');
+      inp.oninput = () => {
+        const raw = inp.value.replace(/[^\d]/g, '');
+        const n = raw ? parseInt(raw, 10) : 0;
+        inp.value = n ? n.toLocaleString('zh-CN') : '';
+        const m = JSON.parse(localStorage.getItem('eveSelCorps') || '{}');
+        if (n > 0) m[c.CorporationId] = n; else delete m[c.CorporationId];
+        localStorage.setItem('eveSelCorps', JSON.stringify(m));
+        row.classList.toggle('on', n > 0);
+        head.classList.toggle('has', !!Object.keys(m).length);
+        markDirty();
+      };
+      list.appendChild(row);
+    });
+    wrap.appendChild(head); wrap.appendChild(list); box.appendChild(wrap);
+  });
+}
+function toggleAllFactions(open) {
+  document.querySelectorAll('#corpList .fac').forEach(f => f.classList.toggle('open', open));
+}
+function clearSelections() {
+  localStorage.setItem('eveSelCorps', '{}');
+  renderCorpList($('#corpFilter').value); markDirty();
+}
+function getEntries() {
+  const m = JSON.parse(localStorage.getItem('eveSelCorps') || '{}');
+  return Object.entries(m).map(([k, v]) => ({ corporationId: parseInt(k, 10), lp: Number(v) }))
+    .filter(e => e.lp > 0);
+}
+
+const PRESETS = {
+  fast: { share: 10, days: 1, maxLpShare: 15, minItems: 8, minDailySales: 0.5,
+          hint: '求快：每天吃 10% 成交量，1 天卖完' },
+  balanced: { share: 5, days: 3, maxLpShare: 25, minItems: 5, minDailySales: 0.5,
+              hint: '均衡：每天吃 5% 成交量，3 天卖完' },
+  full: { share: 3, days: 7, maxLpShare: 40, minItems: 3, minDailySales: 0.1,
+          hint: '吃满：每天吃 3% 成交量，7 天卖完' },
+};
+const CFG_DEFAULT = {
+  preset: 'balanced', tax: 4.5, brokerFee: 2.5, share: 5, sellDays: 3,
+  minDailySales: 0.5, maxLpShare: 25, minItems: 5, impact: 10, ownMaterials: false,
+};
+function loadCfg() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('eveSettings') || '{}');
+    return Object.assign({}, CFG_DEFAULT, saved);
+  } catch { return Object.assign({}, CFG_DEFAULT); }
+}
+function saveCfg() { localStorage.setItem('eveSettings', JSON.stringify(S.cfg)); }
+function cfgToInputs() {
+  $('#tax').value = S.cfg.tax;
+  $('#brokerFee').value = S.cfg.brokerFee;
+  $('#sellDays').value = S.cfg.sellDays;
+  $('#minDailySales').value = S.cfg.minDailySales;
+  $('#maxLpShare').value = S.cfg.maxLpShare;
+  $('#minItems').value = S.cfg.minItems;
+  $('#impact').value = S.cfg.impact;
+  $('#ownMaterials').checked = !!S.cfg.ownMaterials;
+}
+function inputsToCfg() {
+  const num = (id, d) => { const v = parseFloat($('#' + id).value); return isNaN(v) ? d : v; };
+  S.cfg.tax = num('tax', 4.5);
+  S.cfg.brokerFee = num('brokerFee', 2.5);
+  S.cfg.sellDays = Math.max(1, Math.round(num('sellDays', 3)));
+  S.cfg.minDailySales = num('minDailySales', 0.5);
+  S.cfg.maxLpShare = num('maxLpShare', 25);
+  S.cfg.minItems = Math.max(1, Math.round(num('minItems', 5)));
+  S.cfg.impact = num('impact', 10);
+  S.cfg.ownMaterials = $('#ownMaterials').checked;
+}
+function updatePresetUi() {
+  document.querySelectorAll('#presetSeg button').forEach(b =>
+    b.classList.toggle('on', b.dataset.v === S.cfg.preset));
+  const p = PRESETS[S.cfg.preset];
+  $('#presetHint').textContent = p ? p.hint
+    : `自定义：每天吃 ${S.cfg.share}% 成交量，${S.cfg.sellDays} 天卖完`;
+}
+function applyPreset(key) {
+  const p = PRESETS[key]; if (!p) return;
+  S.cfg.preset = key;
+  S.cfg.share = p.share; S.cfg.sellDays = p.days;
+  S.cfg.maxLpShare = p.maxLpShare; S.cfg.minItems = p.minItems;
+  S.cfg.minDailySales = p.minDailySales;
+  cfgToInputs(); updatePresetUi(); saveCfg(); markDirty();
+}
+function onCfgInput() {
+  inputsToCfg();
+  S.cfg.preset = 'custom';
+  updatePresetUi(); saveCfg(); markDirty();
+}
+
+function setListing(v) {
+  S.listing = v;
+  document.querySelectorAll('#listingSeg button').forEach(b =>
+    b.classList.toggle('on', String(v) === b.dataset.v));
+  $('#brokerFee').disabled = v === 0;
+  localStorage.setItem('eveListing', String(v));
+  if (S.cfg) { S.cfg.listing = v; saveCfg(); }
+  markDirty();
+}
+function readParams() {
+  return {
+    entries: getEntries(),
+    isk: readIsk(),
+    tax: S.cfg.tax,
+    marketShare: S.cfg.share / 100,
+    sellDays: S.cfg.sellDays,
+    minDailySales: S.cfg.minDailySales * 1e8,
+    minProfitShare: 0.01,
+    ownMaterials: S.cfg.ownMaterials,
+    maxLpShare: S.cfg.maxLpShare / 100,
+    minItems: S.cfg.minItems,
+    impact: S.cfg.impact / 100,
+    brokerFee: S.cfg.brokerFee,
+    listing: S.listing === 1,
+    regionId: 10000002,
+    days: 7,
+    scope: 0.05,
+    productPrice: 'buy',
+    materialPrice: 'sell',
+    excludeItemIds: [...S.excluded],
+  };
+}
+function snapshot() { return JSON.stringify(readParams()); }
+function markDirty() { $('#runBtn').classList.add('dirty'); }
+
+async function generate() {
+  const p = readParams();
+  if (!p.entries.length) { toast('先给至少一家公司填入 LP', true); return; }
+  const btn = $('#runBtn'); btn.disabled = true; btn.classList.remove('dirty');
+  $('#status').textContent = '正在拉取 starweb 报价并求解…';
+  const t0 = performance.now();
+  try {
+    const r = await fetch('/api/plan', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p)
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    S.plan = await r.json();
+    $('#status').textContent = `用时 ${((performance.now() - t0) / 1000).toFixed(1)}s · 价格曲线 ${S.plan.source?.curves || 0} 个`;
+    renderSummary(); renderHints(); renderFrontier(); render();
+    if (S.plan.errors?.length) toast(S.plan.errors[0], true);
+  } catch (e) {
+    $('#status').textContent = '';
+    toast('规划失败：' + e.message, true);
+  } finally { btn.disabled = false; }
+}
+
+function renderSummary() {
+  const s = S.plan?.summary;
+  const set = (id, v) => { $('#' + id).textContent = v; };
+  if (!s) {
+    ['sNet', 'sProfit', 'sLp', 'sSpend', 'sShadow', 'sAvg', 'sSpendLp', 'sItems'].forEach(i => set(i, '—'));
+    $('#sBottleneck').innerHTML = '—'; return;
+  }
+  set('sNet', fmt(s.netProfit));
+  set('sNetSub', s.lpCostTotal > 0 ? `扣 LP 成本 ${fmt(s.lpCostTotal)}` : 'LP 成本未设置');
+  set('sProfit', fmt(s.totalProfit));
+  set('sProfitSub', s.brokerFeeTotal > 0 ? `经纪人费 ${fmt(s.brokerFeeTotal)}` : '直接卖掉，无经纪人费');
+  set('sLp', fmtI(s.totalLp));
+  set('sLpSub', `已用 ${pct(s.lpUsedRatio)}`);
+  set('sSpend', fmt(s.totalSpend));
+  set('sSpendSub', `已用 ${pct(s.iskUsedRatio)} 本金`);
+  const b = (s.bottleneck || 'NONE').toLowerCase();
+  const names = { isk: '卡 ISK', lp: '卡 LP', both: '双卡', none: '都够' };
+  $('#sBottleneck').innerHTML = `<span class="pill ${b}">${names[b] || b}</span>`;
+  set('sShadow', s.marginalProfitPer100m > 0 ? fmt(s.marginalProfitPer100m) : '充足');
+  set('sAvg', fmtI(s.avgIsPerLp));
+  set('sSpendLp', fmtI(s.avgSpendPerLp));
+  set('sItems', s.items);
+}
+
+function renderHints() {
+  const box = $('#hints'); box.innerHTML = '';
+  const s = S.plan?.summary; if (!s) return;
+  (s.warnings || []).forEach(w => {
+    const bad = w.includes('⛔');
+    box.appendChild(el('div', 'hint' + (bad ? ' warn' : ''),
+      `<span>${bad ? '⛔' : '•'}</span><span>${w.replace('⛔ ', '')}</span>`));
+  });
+  const m = S.plan.source;
+  if (m && m.fetchedAt) {
+    box.appendChild(el('div', 'hint good',
+      `<span>✓</span><span>数据来自 <b>${m.source || 'eve.starweb.cc'}</b> · ${m.regionName || ''}：
+        <b>${new Date(m.fetchedAt).toLocaleTimeString('zh-CN')}</b>
+        · ${m.curves || 0}/${m.offers || 0} 个物品有价格曲线 · 均价按近 ${m.days || 7} 日</span>`));
+  }
+}
+
+function renderFrontier() {
+  const pts = S.plan?.frontier || [];
+  const card = $('#frontierCard');
+  if (pts.length < 2) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  const W = 660, H = 190, PL = 56, PR = 16, PT = 12, PB = 26;
+  const xs = pts.map(p => p.budget), ys = pts.map(p => p.profit);
+  const x0 = 0, x1 = Math.max(...xs) * 1.02, y0 = 0, y1 = Math.max(...ys) * 1.08;
+  const X = v => PL + (v - x0) / (x1 - x0 || 1) * (W - PL - PR);
+  const Y = v => H - PB - (v - y0) / (y1 - y0 || 1) * (H - PT - PB);
+
+  let g = '';
+  for (let i = 0; i <= 4; i++) {
+    const y = PT + i * (H - PT - PB) / 4;
+    g += `<line x1="${PL}" y1="${y}" x2="${W - PR}" y2="${y}" stroke="#18202c" stroke-width="1"/>`;
+    const val = y1 - i * (y1 - y0) / 4;
+    g += `<text x="${PL - 6}" y="${y + 3}" fill="#55627a" font-size="9" text-anchor="end">${fmt(val, 1)}</text>`;
+  }
+  for (let i = 0; i <= 4; i++) {
+    const x = PL + i * (W - PL - PR) / 4;
+    const val = x0 + i * (x1 - x0) / 4;
+    g += `<text x="${x}" y="${H - 8}" fill="#55627a" font-size="9" text-anchor="middle">${fmt(val, 1)}</text>`;
+  }
+  const path = pts.map((p, i) => `${i ? 'L' : 'M'}${X(p.budget).toFixed(1)},${Y(p.profit).toFixed(1)}`).join(' ');
+  g += `<path d="${path} L${X(xs[xs.length - 1]).toFixed(1)},${Y(0)} L${X(xs[0]).toFixed(1)},${Y(0)} Z" fill="rgba(73,214,200,.08)" stroke="none"/>`;
+  g += `<path d="${path}" fill="none" stroke="#49d6c8" stroke-width="2"/>`;
+  const cur = S.plan.summary?.totalSpend || 0;
+  if (cur > 0 && cur <= x1) {
+    g += `<line x1="${X(cur)}" y1="${PT}" x2="${X(cur)}" y2="${H - PB}" stroke="#ffc857" stroke-dasharray="3 3" stroke-width="1"/>`;
+  }
+  pts.forEach(p => {
+    g += `<circle cx="${X(p.budget)}" cy="${Y(p.profit)}" r="3" fill="#0a0d13" stroke="#49d6c8" stroke-width="1.6">
+      <title>本金 ${fmt(p.budget)} → 利润 ${fmt(p.profit)}（LP ${fmtI(p.lp)}）</title></circle>`;
+  });
+  $('#frontierSvg').innerHTML = g;
+  const best = pts[pts.length - 1];
+  $('#frontierNote').textContent =
+    `本金 ${fmt(best.budget)} 时利润触顶 ${fmt(best.profit)}；黄色虚线 = 你当前的本金`;
+}
+
+const COLS = {
+  plan: [
+    { k: 'corporationName', t: '公司', l: 1, f: v => `<span class="corp-tag">${v}</span>` },
+    { k: 'itemName', t: '商品', l: 1, f: v => `<span class="item" title="${v}">${v}</span>` },
+    { k: 'copies', t: '份数', f: v => v },
+    { k: 'totalQuantity', t: '数量', f: v => fmtI(v) },
+    { k: 'lpCost', t: 'LP', f: v => fmtI(v) },
+    { k: 'lpCost', t: 'LP 占比', f: (v, r) => lpBar(r), nosort: 1 },
+    { k: 'spend', t: '花费', f: v => fmt(v) },
+    { k: 'unitPrice', t: '现价', f: v => fmtI(v) },
+    { k: 'realizedPrice', t: '实际均价', f: (v, r) =>
+      `<span class="${r.priceImpact < -0.02 ? 'neg' : ''}" title="价格冲击 ${pct(r.priceImpact)}">${fmtI(v)}</span>` },
+    { k: 'profit', t: '利润', f: v => `<b class="pos">${fmt(v)}</b>` },
+    { k: 'unitProfit', t: 'ISK/LP', f: v => fmtI(v) },
+    { k: 'dailyFlow', t: '日利润', f: v => fmt(v) },
+    { k: 'sellDays', t: '卖完', f: v => v == null ? '—' : v + '天' },
+    { k: 'flags', t: '风险', l: 1, f: v => flagPills(v), nosort: 1 },
+    { k: 'act', t: '', f: (v, r) => `<button class="row-act" onclick="excludeItem(${r.itemId})">排除</button>`, nosort: 1 },
+  ],
+  all: [
+    { k: 'corporationName', t: '公司', l: 1, f: v => `<span class="corp-tag">${v}</span>` },
+    { k: 'itemName', t: '商品', l: 1, f: v => `<span class="item" title="${v}">${v}</span>` },
+    { k: 'chosen', t: '状态', l: 1, f: v => v
+      ? '<span class="pill lp">已入选</span>' : '<span class="muted">未入选</span>' },
+    { k: 'perCopyQuantity', t: '每份', f: v => fmtI(v) },
+    { k: 'lpCost', t: 'LP', f: v => fmtI(v) },
+    { k: 'iskCost', t: 'ISK/份', f: v => fmt(v) },
+    { k: 'unitPrice', t: '现价', f: v => fmtI(v) },
+    { k: 'marginIsPerLp', t: '边际 ISK/LP', f: v => fmtI(v) },
+    { k: 'velocity', t: '日销', f: v => fmtI(v) },
+    { k: 'dailyFlow', t: '日利润', f: v => fmt(v) },
+    { k: 'flags', t: '风险', l: 1, f: v => flagPills(v), nosort: 1 },
+    { k: 'act', t: '', f: (v, r) => r.excluded
+      ? `<button class="row-act restore" onclick="restoreItem(${r.itemId})">恢复</button>`
+      : `<button class="row-act" onclick="excludeItem(${r.itemId})">排除</button>`, nosort: 1 },
+  ],
+};
+
+function lpBar(r) {
+  const total = S.plan?.summary?.totalLp || 1;
+  const share = r.lpCost / total;
+  const w = Math.min(100, share * 300);
+  return `<span class="bar" title="${pct(share)}"><i style="width:${w}%"></i></span>`;
+}
+function flagPills(flags) {
+  if (!flags || !flags.length) return '<span class="muted">—</span>';
+  const label = { price_spike: '高于均价', price_dip: '低于均价', slow_sale: '出货慢',
+    tiny_market: '成交量小', no_curve: '无曲线' };
+  return flags.map(f => `<span class="pill ${f.level === 'warn' ? 'warn' : 'info'}" title="${f.label}">${
+    label[f.code] || f.code}</span>`).join(' ');
+}
+
+function currentRows() {
+  const p = S.plan; if (!p) return [];
+  let rows = S.tab === 'plan' ? (p.rows || []) : (p.candidates || []);
+  const q = ($('#filter').value || '').trim().toLowerCase();
+  if (q) rows = rows.filter(r => (r.itemName || '').toLowerCase().includes(q) ||
+    (r.corporationName || '').toLowerCase().includes(q));
+  rows = rows.slice().sort((a, b) => {
+    const va = a[S.sort.key], vb = b[S.sort.key];
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    return (va < vb ? -1 : va > vb ? 1 : 0) * S.sort.dir;
+  });
+  return rows;
+}
+
+function render() {
+  if (S.tab === 'plans') return renderPlans();
+  if (S.tab === 'wallet') return renderWallet();
+  if (S.tab === 'settings') return renderSettings();
+  const cols = COLS[S.tab];
+  $('#thead').innerHTML = '<tr>' + cols.map(c => {
+    const ar = S.sort.key === c.k ? `<span class="ar">${S.sort.dir > 0 ? '▲' : '▼'}</span>` : '';
+    const cls = c.l ? ' class="l"' : '';
+    const click = c.nosort ? '' : ` onclick="sortBy('${c.k}')"`;
+    return `<th${cls}${click}>${c.t}${ar}</th>`;
+  }).join('') + '</tr>';
+
+  const rows = currentRows();
+  $('#tbody').innerHTML = rows.length ? rows.map(r =>
+    `<tr class="${S.tab === 'all' && S.excluded.has(r.itemId) ? 'excluded' : ''}">` +
+    cols.map(c => `<td class="${c.l ? 'l' : ''}">${c.f ? c.f(r[c.k], r) : (r[c.k] ?? '—')}</td>`).join('') +
+    '</tr>').join('')
+    : `<tr><td colspan="${cols.length}"><div class="empty">${
+      S.plan ? '没有匹配的行' : '先在左侧填入 LP 与本金，然后点「开始规划」'}</div></td></tr>`;
+  $('#rowCount').textContent = `${rows.length} 行`;
+  renderMaterials();
+}
+
+function sortBy(k) {
+  if (S.sort.key === k) S.sort.dir *= -1;
+  else { S.sort.key = k; S.sort.dir = -1; }
+  render();
+}
+function excludeItem(id) {
+  S.excluded.add(id); localStorage.setItem('eveExcludedItems', JSON.stringify([...S.excluded]));
+  render(); markDirty(); toast('已排除，重新规划后生效');
+}
+function restoreItem(id) {
+  S.excluded.delete(id); localStorage.setItem('eveExcludedItems', JSON.stringify([...S.excluded]));
+  render(); markDirty();
+}
+
+function materialTotals() {
+  const agg = new Map();
+  (S.plan?.rows || []).forEach(r => (r.materials || []).forEach(m => {
+    if (m.isBlueprint) return;
+    agg.set(m.name, (agg.get(m.name) || 0) + m.quantity * r.copies);
+  }));
+  return agg;
+}
+function renderMaterials() {
+  const box = $('#materialBox'); box.innerHTML = '';
+  if (S.tab !== 'plan' || !S.plan) return;
+  const agg = materialTotals();
+  if (!agg.size) return;
+  const html = [...agg.entries()].map(([n, q]) => `${n} × ${fmtI(q)}`).join('　·　');
+  box.appendChild(el('div', 'hint', `<span>📦</span><span>需要材料：<b>${html}</b></span>`));
+}
+async function copyMaterials() {
+  if (!S.plan) return;
+  const txt = [...materialTotals().entries()].map(([n, q]) => `${n} ${q}`).join('\n');
+  if (!txt) { toast('这批兑换不需要材料'); return; }
+  try { await navigator.clipboard.writeText(txt); toast('材料清单已复制'); }
+  catch { toast('复制失败：浏览器拒绝了剪贴板访问', true); }
+}
+
+async function savePlan() {
+  const s = S.plan?.summary; if (!s) { toast('还没有可保存的规划', true); return; }
+  const body = {
+    totalLp: s.totalLp, totalSpend: s.totalSpend, totalIncome: s.totalIncome,
+    totalProfit: s.totalProfit, netProfit: s.netProfit, lpCostTotal: s.lpCostTotal,
+    items: s.items, avgIsPerLp: s.avgIsPerLp,
+    rows: (S.plan.rows || []).map(r => ({
+      itemName: r.itemName, copies: r.copies, totalQuantity: r.totalQuantity,
+      lpCost: r.lpCost, spend: r.spend, profit: r.profit, netProfit: 0,
+    })),
+  };
+  try {
+    const r = await fetch('/api/plans/save', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    toast('计划已保存'); await loadPlans();
+  } catch (e) { toast('保存失败：' + e.message, true); }
+}
+
+async function loadPlans() {
+  try {
+    const d = await (await fetch('/api/plans')).json();
+    S.plans = d.plans || []; S.planStats = d.stats || {};
+    if (S.tab === 'plans') renderPlans();
+  } catch (e) { /* 静默 */ }
+}
+function renderPlans() {
+  const st = S.planStats || {};
+  $('#planStats').innerHTML = `
+    <div class="stat"><div class="lb">本月完成</div><div class="vl num">${st.monthDone ?? 0}</div></div>
+    <div class="stat primary"><div class="lb">本月净利润</div><div class="vl num">${fmt(st.monthProfit || 0)}</div></div>
+    <div class="stat"><div class="lb">单均利润</div><div class="vl num">${fmt(st.monthAvgProfit || 0)}</div></div>
+    <div class="stat"><div class="lb">进行中</div><div class="vl num">${st.activeCount ?? 0}</div></div>`;
+  const box = $('#plansList');
+  if (!S.plans.length) { box.innerHTML = '<div class="empty">还没有保存过计划</div>'; return; }
+  box.innerHTML = S.plans.map(p => `
+    <div class="plan-item ${p.status === 'done' ? 'done' : ''}">
+      <div class="meta">
+        <div class="t">${(p.createdAt || '').replace('T', ' ').slice(0, 16)} · ${p.items} 种商品 · ${fmtI(p.totalLp)} LP
+          ${p.status === 'done' ? ' · <b style="color:var(--green)">已完成</b>' : ''}</div>
+        <div class="v num">${fmt(p.netProfit)}</div>
+        <div class="s">投入 ${fmt(p.totalSpend)} · 利润 ${fmt(p.totalProfit)} · ${fmtI(p.avgIsPerLp)} ISK/LP</div>
+      </div>
+      <button class="btn-s" onclick="floater('${p.id}')">悬浮窗</button>
+      ${p.status === 'done' ? '' : `<button class="btn-s" onclick="completePlan('${p.id}')">标记完成</button>`}
+      <button class="btn-s danger" onclick="deletePlan('${p.id}')">删除</button>
+    </div>`).join('');
+}
+async function completePlan(id) {
+  await fetch(`/api/plans/${id}/complete`, { method: 'POST' });
+  await loadPlans(); renderPlans();
+}
+async function deletePlan(id) {
+  if (!confirm('删除这个计划存档？')) return;
+  await fetch(`/api/plans/${id}`, { method: 'DELETE' });
+  await loadPlans(); renderPlans();
+}
+async function floater(id) {
+  const r = await fetch(`/api/plans/${id}/floater`, { method: 'POST' });
+  toast(r.ok ? '悬浮窗已打开（屏幕右下角）' : '悬浮窗启动失败', !r.ok);
+}
+
+async function esiAction() {
+  try {
+    const st = await (await fetch('/api/esi/status')).json();
+    if (st.loggedIn) { switchTab('wallet'); loadWallet(); return; }
+  } catch {}
+  location.href = '/api/esi/login';
+}
+async function loadWallet() {
+  try {
+    const r = await fetch('/api/wallet');
+    if (!r.ok) { S.wallet = null; $('#esiBtn').textContent = 'ESI 未连接'; renderWallet(); return; }
+    S.wallet = await r.json(); $('#esiBtn').textContent = 'ESI 已连接';
+    renderWallet();
+  } catch (e) { $('#walletNote').textContent = '钱包加载失败'; }
+}
+function renderWallet() {
+  const w = S.wallet;
+  const show = !!w;
+  $('#walletChartBox').style.display = show ? '' : 'none';
+  $('#walletTableBox').style.display = show ? '' : 'none';
+  $('#walletEmpty').style.display = show ? 'none' : '';
+  if (!show) { $('#walletNote').textContent = '未连接 ESI'; $('#walletStats').innerHTML = ''; return; }
+  $('#walletNote').textContent = '数据来自 ESI 钱包'
+    + ((w.warnings || []).length ? ' · ' + w.warnings[0] : '');
+  const t = w.totals || {};
+  $('#walletStats').innerHTML = `
+    <div class="stat primary"><div class="lb">钱包余额</div><div class="vl num">${fmt(w.balance)}</div></div>
+    <div class="stat"><div class="lb">近 30 日收入</div><div class="vl num pos">${fmt(t.income)}</div></div>
+    <div class="stat"><div class="lb">近 30 日支出</div><div class="vl num neg">${fmt(t.expense)}</div></div>
+    <div class="stat"><div class="lb">净额</div><div class="vl num">${fmt(t.net)}</div></div>`;
+  drawChart(w.daily || []);
+  $('#walletThead').innerHTML = '<tr><th class="l">日期</th><th>余额</th></tr>';
+  $('#walletTbody').innerHTML = (w.daily || []).slice().reverse().map(d =>
+    `<tr><td class="l">${d.date}</td><td>${fmt(d.balance)}</td></tr>`).join('');
+}
+function drawChart(daily) {
+  const cv = $('#chart'), ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  if (!daily.length) return;
+  const ys = daily.map(d => d.balance);
+  const y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const X = i => 40 + i / Math.max(1, daily.length - 1) * (W - 60);
+  const Y = v => H - 30 - (v - y0) / (y1 - y0 || 1) * (H - 50);
+  ctx.strokeStyle = '#18202c';
+  for (let i = 0; i <= 4; i++) {
+    const y = 20 + i * (H - 50) / 4;
+    ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(W - 20, y); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.strokeStyle = '#49d6c8'; ctx.lineWidth = 2;
+  daily.forEach((d, i) => i ? ctx.lineTo(X(i), Y(d.balance)) : ctx.moveTo(X(i), Y(d.balance)));
+  ctx.stroke();
+  ctx.lineTo(X(daily.length - 1), H - 30); ctx.lineTo(X(0), H - 30); ctx.closePath();
+  ctx.fillStyle = 'rgba(73,214,200,.10)'; ctx.fill();
+}
+
+async function loadLpCosts() {
+  try { S.lpCosts = (await (await fetch('/api/lp-costs')).json()).costs || {}; }
+  catch { S.lpCosts = {}; }
+}
+function renderSettings() {
+  const box = $('#settingsList'); box.innerHTML = '';
+  const pending = new Map();
+  (S.meta?.factions || []).forEach(f => (f.Corporations || []).forEach(c => {
+    if (S.lpCosts[c.CorporationId]) pending.set(c.CorporationId, c.CorporationName);
+  }));
+  getEntries().forEach(e => {
+    if (pending.has(e.corporationId)) return;
+    (S.meta?.factions || []).forEach(f => (f.Corporations || []).forEach(c => {
+      if (c.CorporationId === e.corporationId) pending.set(c.CorporationId, c.CorporationName);
+    }));
+  });
+  if (!pending.size) {
+    box.innerHTML = '<div class="muted">先在左侧选择公司，这里才能设置每家公司的 LP 成本</div>';
+    return;
+  }
+  pending.forEach((name, id) => {
+    const row = el('div', 'settings-row');
+    row.innerHTML = `<span class="nm">${name}</span>
+      <input type="number" step="10" min="0" value="${S.lpCosts[id] || ''}" data-id="${id}" placeholder="0" />`;
+    box.appendChild(row);
+  });
+}
+async function saveLpCosts() {
+  const costs = {};
+  document.querySelectorAll('#settingsList input').forEach(i => {
+    const v = parseFloat(i.value); if (v > 0) costs[i.dataset.id] = v;
+  });
+  await fetch('/api/lp-costs', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ costs })
+  });
+  S.lpCosts = costs; toast('LP 成本已保存');
+}
+
+function switchTab(tab) {
+  S.tab = tab;
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  $('#planArea').style.display = tab === 'plan' || tab === 'all' ? '' : 'none';
+  $('#plansArea').style.display = tab === 'plans' ? '' : 'none';
+  $('#walletArea').style.display = tab === 'wallet' ? '' : 'none';
+  $('#settingsArea').style.display = tab === 'settings' ? '' : 'none';
+  if (tab === 'plans') { loadPlans(); renderPlans(); }
+  if (tab === 'wallet') loadWallet();
+  if (tab === 'settings') renderSettings();
+  if (tab === 'plan' || tab === 'all') render();
+}
+
+function bindDirty() {
+  ['tax', 'brokerFee', 'sellDays', 'minDailySales', 'maxLpShare', 'minItems', 'impact'].forEach(id => {
+    const e = $('#' + id); if (e) e.addEventListener('change', onCfgInput);
+  });
+  const om = $('#ownMaterials'); if (om) om.addEventListener('change', onCfgInput);
+  const isk = $('#isk'); if (isk) isk.addEventListener('change', markDirty);
+}
+(async function init() {
+  const params = new URLSearchParams(location.search);
+  // 深链：?corp=1000035:1000000,1000130:300000&isk=20&auto=1
+  const corpParam = params.get('corp');
+  if (corpParam) {
+    const m = {};
+    corpParam.split(',').forEach(pair => {
+      const [id, lp] = pair.split(':');
+      const n = parseInt(lp, 10);
+      if (parseInt(id, 10) && n > 0) m[parseInt(id, 10)] = n;
+    });
+    localStorage.setItem('eveSelCorps', JSON.stringify(m));
+  }
+  if (params.get('isk')) { $('#isk').value = params.get('isk'); localStorage.setItem('eveIsk', params.get('isk')); }
+  const savedIsk = localStorage.getItem('eveIsk');
+  if (savedIsk) $('#isk').value = savedIsk;
+  fmtIskInput($('#isk'));
+  S.cfg = loadCfg();
+  cfgToInputs();
+  updatePresetUi();
+  setListing(parseInt(localStorage.getItem('eveListing') || String(S.cfg.listing || 0), 10));
+  bindDirty();
+  await loadMeta();
+  await loadLpCosts();
+  await loadPlans();
+  if (params.get('tab')) switchTab(params.get('tab'));
+  else render();
+  if (params.get('auto') === '1') generate();
+  try {
+    const st = await (await fetch('/api/esi/status')).json();
+    if (st.loggedIn) $('#esiBtn').textContent = 'ESI 已连接';
+  } catch {}
+})();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "root": "C:\\Users\\28944\\Documents\\vscode\\EVE商人助手",
+  "start_name": "EVE 商人助手.lnk",
+  "stop_name": "停止 EVE 商人助手.lnk",
+  "start_desc": "EVE LP 规划器：后台启动服务并打开浏览器",
+  "stop_desc": "停止 EVE LP 规划器的后台服务"
+}

@@ -1,0 +1,37 @@
+# 运行时数据（含本机 LP/本金/税费设置），不要提交
+gui_state.json
+lp_costs.json
+
+# 打包产物
+build/
+dist/
+*.spec
+
+# 缓存与临时文件
+.cache/
+.tmp/
+.tmpdata/
+logs/
+__pycache__/
+*.pyc
+
+# 虚拟环境
+.venv/
+.venv-build/
+venv/
+
+# 编辑器
+.vscode/
+.idea/
+
+# 打包好的 exe（体积大，用 tools/build_desktop.py 自行生成）
+app/
+
+# 旧网页版的密钥/运行时数据（绝不提交）
+legacy/web/config.json
+legacy/web/token.json
+legacy/web/pkce.json
+legacy/web/plans.json
+legacy/web/floater_data.json
+debug.log
+*.log
